@@ -2,49 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard | USC Data</title>
+    <title>USC Admin | Private Inbox</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
 
-    <div id="loginSection" class="max-w-md mx-auto bg-white p-10 rounded-3xl shadow-2xl mt-20">
-        <h2 class="text-2xl font-black mb-6 text-center text-slate-800 tracking-tight uppercase">Admin Verification</h2>
-        <input type="email" id="adminEmail" placeholder="Email" class="w-full p-4 border-2 border-slate-100 rounded-2xl mb-4 outline-none focus:border-indigo-400">
-        <input type="password" id="adminPass" placeholder="Password" class="w-full p-4 border-2 border-slate-100 rounded-2xl mb-6 outline-none focus:border-indigo-400">
-        <button onclick="adminLogin()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black tracking-widest hover:bg-indigo-600 transition">LOGIN</button>
+    <div id="loginSection" class="max-w-md mx-auto bg-slate-800 p-10 rounded-[2rem] mt-20 shadow-2xl">
+        <h2 class="text-2xl font-black mb-6 text-center text-indigo-400">ADMIN LOGIN</h2>
+        <input type="email" id="adminEmail" placeholder="Email" class="w-full p-4 bg-slate-700 border-none rounded-2xl mb-4 text-white">
+        <input type="password" id="adminPass" placeholder="Password" class="w-full p-4 bg-slate-700 border-none rounded-2xl mb-6 text-white">
+        <button onclick="adminLogin()" class="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black hover:bg-indigo-600 transition">ENTER VAULT</button>
     </div>
 
-    <div id="adminDashboard" class="hidden p-6 lg:p-12">
-        <div class="flex flex-col lg:flex-row justify-between items-center mb-12 gap-6">
-            <div>
-                <h1 class="text-5xl font-black text-slate-900">USC COMMAND</h1>
-                <p class="text-slate-500 font-bold uppercase text-xs tracking-widest">Student Voice Analytics Dashboard</p>
-            </div>
-            <button onclick="logout()" class="bg-white border-2 border-slate-200 px-8 py-3 rounded-2xl font-bold hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition">Logout</button>
+    <div id="adminDashboard" class="hidden max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-12">
+            <h1 class="text-4xl font-black italic text-indigo-400">SERIOUS INBOX</h1>
+            <button onclick="logout()" class="text-xs font-bold opacity-50 hover:opacity-100">LOGOUT</button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="space-y-6">
-                <div class="bg-white p-8 rounded-[2rem] shadow-sm">
-                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">College Distribution</h3>
-                    <canvas id="collegeChart"></canvas>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-800 p-8 rounded-[2rem]">
+                    <h3 class="text-xs font-bold text-slate-500 mb-4 uppercase">Resolution Progress</h3>
+                    <canvas id="resChart"></canvas>
                 </div>
-                <div class="bg-indigo-600 p-8 rounded-[2rem] text-white">
-                    <p class="text-xs font-bold text-indigo-200 uppercase mb-2">Total Submissions</p>
-                    <h2 id="totalCount" class="text-6xl font-black italic">0</h2>
+                <div class="bg-indigo-600 p-8 rounded-[2rem]">
+                    <p class="text-xs font-bold opacity-60 uppercase mb-2">Active Concerns</p>
+                    <h2 id="totalCount" class="text-6xl font-black">0</h2>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 space-y-6">
-                <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center">
-                        <h2 class="font-black text-slate-700 tracking-tight">ACTIONABLE CONCERNS</h2>
-                        <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-[10px] font-black">NEWEST FIRST</span>
+            <div class="lg:col-span-2">
+                <div id="seriousWall" class="space-y-4">
                     </div>
-                    <div id="adminWall" class="divide-y divide-slate-100">
-                        </div>
-                </div>
             </div>
         </div>
     </div>
@@ -76,76 +67,59 @@
 
         window.logout = () => signOut(auth);
 
-        window.toggleStatus = async (id, currentStatus) => {
-            const newStatus = currentStatus === 'pending' ? 'addressed' : 'pending';
-            await updateDoc(doc(db, "messages", id), { status: newStatus });
+        window.toggleResolve = async (id, status) => {
+            await updateDoc(doc(db, "serious_concerns", id), { status: status === 'pending' ? 'done' : 'pending' });
         };
 
-        window.deleteMessage = async (id) => {
-            if(confirm("Confirm Deletion?")) await deleteDoc(doc(db, "messages", id));
-        };
+        window.deleteMsg = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "serious_concerns", id)); };
 
         onAuthStateChanged(auth, (user) => {
             document.getElementById('loginSection').classList.toggle('hidden', !!user);
             document.getElementById('adminDashboard').classList.toggle('hidden', !user);
-            if(user) runAdminLogic();
+            if(user) loadSeriousData();
         });
 
-        function runAdminLogic() {
-            const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
-            onSnapshot(q, (snapshot) => {
-                const wall = document.getElementById('adminWall');
-                const stats = { "COT": 0, "COED": 0, "CHM": 0, "Unknown": 0 };
+        function loadSeriousData() {
+            const q = query(collection(db, "serious_concerns"), orderBy("createdAt", "desc"));
+            onSnapshot(q, (snaps) => {
+                const wall = document.getElementById('seriousWall');
+                let done = 0; let pending = 0;
                 wall.innerHTML = "";
                 
-                snapshot.forEach((fbDoc) => {
-                    const data = fbDoc.data();
-                    const id = fbDoc.id;
-                    const from = (data.from || "").toLowerCase();
-                    
-                    if (from.includes("tech") || from.includes("cot")) stats["COT"]++;
-                    else if (from.includes("edu") || from.includes("coed")) stats["COED"]++;
-                    else if (from.includes("hosp") || from.includes("chm")) stats["CHM"]++;
-                    else stats["Unknown"]++;
+                snaps.forEach(d => {
+                    const data = d.data();
+                    const isDone = data.status === 'done';
+                    isDone ? done++ : pending++;
 
-                    const isDone = data.status === 'addressed';
                     wall.innerHTML += `
-                        <div class="p-8 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                            <div class="${isDone ? 'opacity-30' : ''}">
-                                <div class="flex gap-2 mb-1">
-                                    <span class="text-[9px] font-black px-2 py-1 bg-slate-100 rounded text-slate-500 uppercase">${data.from}</span>
-                                    <span class="text-[9px] font-black px-2 py-1 bg-indigo-50 rounded text-indigo-500 uppercase">TO: ${data.to}</span>
-                                </div>
-                                <p class="text-slate-800 font-bold text-lg">${data.text}</p>
+                        <div class="p-6 rounded-3xl ${isDone ? 'bg-slate-800/50 opacity-50' : 'bg-slate-800'} border border-slate-700 flex justify-between items-center">
+                            <div>
+                                <p class="text-[10px] font-bold text-indigo-400 mb-1 uppercase">${data.from} → ${data.to}</p>
+                                <p class="font-bold text-lg">${data.text}</p>
                             </div>
-                            <div class="flex items-center gap-4">
-                                <button onclick="toggleStatus('${id}', '${data.status}')" class="px-6 py-2 rounded-xl text-xs font-black transition-all ${isDone ? 'bg-green-500 text-white shadow-lg shadow-green-100' : 'bg-slate-100 text-slate-600 hover:bg-orange-100 hover:text-orange-600'}">
-                                    ${isDone ? 'COMPLETED' : 'RESOLVE'}
+                            <div class="flex gap-2">
+                                <button onclick="toggleResolve('${d.id}', '${data.status}')" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-green-500 text-white' : 'bg-indigo-500 text-white'}">
+                                    ${isDone ? 'RESOLVED' : 'PENDING'}
                                 </button>
-                                <button onclick="deleteMessage('${id}')" class="text-slate-300 hover:text-red-500 transition-colors text-xl">✕</button>
+                                <button onclick="deleteMsg('${d.id}')" class="text-slate-500">✕</button>
                             </div>
                         </div>`;
                 });
-
-                document.getElementById('totalCount').innerText = snapshot.size;
-                updateChart(stats);
+                document.getElementById('totalCount').innerText = pending;
+                updateChart(done, pending);
             });
         }
 
-        function updateChart(stats) {
-            const ctx = document.getElementById('collegeChart').getContext('2d');
-            if (myChart) myChart.destroy();
+        function updateChart(done, pending) {
+            const ctx = document.getElementById('resChart').getContext('2d');
+            if(myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'doughnut',
+                type: 'pie',
                 data: {
-                    labels: ['COT', 'COED', 'CHM', 'Other'],
-                    datasets: [{
-                        data: [stats.COT, stats.COED, stats.CHM, stats.Unknown],
-                        backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#cbd5e1'],
-                        borderWidth: 0
-                    }]
+                    labels: ['Resolved', 'Pending'],
+                    datasets: [{ data: [done, pending], backgroundColor: ['#10b981', '#6366f1'], borderWidth: 0 }]
                 },
-                options: { cutout: '80%', plugins: { legend: { display: false } } }
+                options: { plugins: { legend: { display: false } } }
             });
         }
     </script>
