@@ -46,9 +46,14 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = { 
-            // PASTE YOUR CONFIG HERE 
-        };
+        const firebaseConfig = {
+  apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
+  authDomain: "web-app-7f330.firebaseapp.com",
+  projectId: "web-app-7f330",
+  storageBucket: "web-app-7f330.firebasestorage.app",
+  messagingSenderId: "991761230541",
+  appId: "1:991761230541:web:4063b0ab78e03a72075784"
+
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
