@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Pulse | Interactive Wall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        .note-card { transition: all 0.3s ease; }
+        .note-card:hover { transform: scale(1.03) rotate(-1deg); z-index: 10; }
+        .bg-pattern { background-color: #f3f4f6; background-image: radial-gradient(#d1d5db 1px, transparent 1px); background-size: 20px 20px; }
+    </style>
+</head>
+<body class="bg-pattern min-h-screen">
+
+    <header class="py-10 text-center">
+        <h1 class="text-6xl font-black text-indigo-600 drop-shadow-md animate__animated animate__pulse animate__infinite">CAMPUS PULSE</h1>
+        <p class="text-gray-500 font-medium mt-2">No login. No drama. Just messages.</p>
+    </header>
+
+    <section class="max-w-2xl mx-auto px-4 mb-16">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl border-t-8 border-indigo-500">
+            <div class="grid grid-cols-1 gap-4">
+                <textarea id="message" placeholder="Type your concern or secret message here..." class="w-full p-4 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 focus:bg-white outline-none h-32 transition"></textarea>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <input type="text" id="fromCollege" placeholder="From (Optional College)" class="flex-1 p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
+                    <input type="text" id="toWhom" placeholder="To (Addressed to...)" class="flex-1 p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
+                </div>
+                <button onclick="postMessage()" id="sendBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-indigo-200 transform active:scale-95 transition-all text-xl">
+                    Post to Wall 🚀
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <main id="wall" class="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pb-20">
+        </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // REPLACE WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const wall = document.getElementById('wall');
+
+        // Function to Post
+        window.postMessage = async () => {
+            const msg = document.getElementById('message').value;
+            const from = document.getElementById('fromCollege').value || "Anonymous";
+            const to = document.getElementById('toWhom').value || "Anyone";
+
+            if (!msg) return alert("You can't post an empty bubble!");
+
+            try {
+                await addDoc(collection(db, "messages"), {
+                    text: msg,
+                    from: from,
+                    to: to,
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('message').value = "";
+                document.getElementById('fromCollege').value = "";
+                document.getElementById('toWhom').value = "";
+            } catch (e) { console.error("Error adding document: ", e); }
+        };
+
+        // Real-time listener
+        const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            wall.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const colors = ['bg-yellow-200', 'bg-blue-200', 'bg-pink-200', 'bg-green-200', 'bg-purple-200', 'bg-orange-200'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                const card = `
+                    <div class="${randomColor} p-6 rounded-sm shadow-lg note-card animate__animated animate__fadeIn rotate-1">
+                        <div class="flex justify-between items-start mb-4">
+                             <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600">To: ${data.to}</span>
+                             <div class="h-4 w-4 bg-gray-400 rounded-full opacity-20"></div>
+                        </div>
+                        <p class="text-gray-800 font-medium leading-relaxed mb-6">"${data.text}"</p>
+                        <div class="text-right">
+                             <span class="text-xs font-bold italic text-gray-700">— ${data.from}</span>
+                        </div>
+                    </div>
+                `;
+                wall.insertAdjacentHTML('beforeend', card);
+            });
+        });
+    </script>
+</body>
+</html>
