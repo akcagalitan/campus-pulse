@@ -1,49 +1,126 @@
-<script type="module">
-    // 1. Use the CDN URLs so the browser can download the Firebase code
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Campus Pulse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
 
-    // 2. Your specific configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
-        authDomain: "web-app-7f330.firebaseapp.com",
-        projectId: "web-app-7f330",
-        storageBucket: "web-app-7f330.firebasestorage.app",
-        messagingSenderId: "991761230541",
-        appId: "1:991761230541:web:4063b0ab78e03a72075784"
-    };
+    <div id="loginSection" class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg mt-20">
+        <h2 class="text-2xl font-bold mb-4">Admin Login</h2>
+        <input type="email" id="adminEmail" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+        <input type="password" id="adminPass" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+        <button onclick="adminLogin()" class="w-full bg-indigo-600 text-white py-2 rounded">Login</button>
+    </div>
 
-    // 3. Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    <div id="adminDashboard" class="hidden">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Campus Analytics 📊</h1>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+        </div>
 
-    // 4. Attach the login function to the "window" so the button can see it
-    window.adminLogin = async () => {
-        const email = document.getElementById('adminEmail').value;
-        const pass = document.getElementById('adminPass').value;
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
+            <div class="p-4 bg-indigo-50 rounded-2xl">
+                <p class="text-sm text-indigo-600 font-bold uppercase">Total Messages</p>
+                <h3 id="totalCount" class="text-3xl font-black text-indigo-900">0</h3>
+            </div>
+            <div class="p-4 bg-orange-50 rounded-2xl">
+                <p class="text-sm text-orange-600 font-bold uppercase">Most Active</p>
+                <h3 id="topCollege" class="text-xl font-black text-orange-900">---</h3>
+            </div>
+            <div class="p-4 bg-green-50 rounded-2xl">
+                <p class="text-sm text-green-600 font-bold uppercase">Anonymity Rate</p>
+                <h3 id="anonRate" class="text-3xl font-black text-green-900">0%</h3>
+            </div>
+        </div>
 
-        try {
-            await signInWithEmailAndPassword(auth, email, pass);
-            console.log("Logged in!");
-        } catch (error) {
-            alert("Login Error: " + error.message);
+        <div class="bg-white p-6 rounded-3xl shadow-xl">
+            <canvas id="collegeChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+  apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
+  authDomain: "web-app-7f330.firebaseapp.com",
+  projectId: "web-app-7f330",
+  storageBucket: "web-app-7f330.firebasestorage.app",
+  messagingSenderId: "991761230541",
+  appId: "1:991761230541:web:4063b0ab78e03a72075784"
+
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let myChart;
+
+        // Login Function
+        window.adminLogin = () => {
+            const email = document.getElementById('adminEmail').value;
+            const pass = document.getElementById('adminPass').value;
+            signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+        };
+
+        // Logout Function
+        window.logout = () => signOut(auth);
+
+        // UI Toggle based on Auth
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                startAnalytics();
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('adminDashboard').classList.add('hidden');
+            }
+        });
+
+        function startAnalytics() {
+            const ctx = document.getElementById('collegeChart').getContext('2d');
+            onSnapshot(collection(db, "messages"), (snapshot) => {
+                const stats = { "COT": 0, "COED": 0, "CHM": 0, "Unknown": 0 };
+                let total = 0;
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const from = (data.from || "").toLowerCase();
+                    total++;
+
+                    if (from.includes("technology") || from.includes("cot")) stats["COT"]++;
+                    else if (from.includes("education") || from.includes("coed")) stats["COED"]++;
+                    else if (from.includes("hospitality") || from.includes("chm")) stats["CHM"]++;
+                    else stats["Unknown"]++;
+                });
+
+                document.getElementById('totalCount').innerText = total;
+                document.getElementById('anonRate').innerText = total > 0 ? Math.round((stats["Unknown"] / total) * 100) + "%" : "0%";
+                
+                // Determine Most Active
+                const top = Object.keys(stats).reduce((a, b) => stats[a] > stats[b] ? a : b);
+                document.getElementById('topCollege').innerText = top === "Unknown" ? "Anonymous" : top;
+
+                if (myChart) myChart.destroy();
+                myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Technology', 'Education', 'Hospitality', 'Unknown'],
+                        datasets: [{
+                            label: 'Messages per College',
+                            data: [stats["COT"], stats["COED"], stats["CHM"], stats["Unknown"]],
+                            backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#94a3b8'],
+                            borderRadius: 8
+                        }]
+                    }
+                });
+            });
         }
-    };
-
-    // 5. Auth Listener to show/hide the dashboard
-    onAuthStateChanged(auth, (user) => {
-        const loginSec = document.getElementById('loginSection');
-        const dashSec = document.getElementById('adminDashboard');
-        
-        if (user) {
-            loginSec.classList.add('hidden');
-            dashSec.classList.remove('hidden');
-            // startAnalytics(); // Call your chart function here
-        } else {
-            loginSec.classList.remove('hidden');
-            dashSec.classList.add('hidden');
-        }
-    });
-</script>
+    </script>
+</body>
+</html>
