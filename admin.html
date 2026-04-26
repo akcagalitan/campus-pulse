@@ -2,87 +2,99 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | Campus Pulse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-100 p-6 min-h-screen">
 
     <div id="loginSection" class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg mt-20">
-        <h2 class="text-2xl font-bold mb-4">Admin Login</h2>
-        <input type="email" id="adminEmail" placeholder="Email" class="w-full p-2 mb-4 border rounded">
-        <input type="password" id="adminPass" placeholder="Password" class="w-full p-2 mb-4 border rounded">
-        <button onclick="adminLogin()" class="w-full bg-indigo-600 text-white py-2 rounded">Login</button>
+        <h2 class="text-2xl font-bold mb-6 text-center text-indigo-600">Admin Login</h2>
+        <div class="space-y-4">
+            <input type="email" id="adminEmail" placeholder="ken@gmail.com" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none">
+            <input type="password" id="adminPass" placeholder="Password" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none">
+            <button onclick="adminLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition transform active:scale-95">
+                Login
+            </button>
+        </div>
     </div>
 
-    <div id="adminDashboard" class="hidden">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold">Campus Analytics 📊</h1>
-            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+    <div id="adminDashboard" class="hidden max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl font-black text-gray-800">Campus Analytics 📊</h1>
+            <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-full font-bold">Logout</button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
-            <div class="p-4 bg-indigo-50 rounded-2xl">
-                <p class="text-sm text-indigo-600 font-bold uppercase">Total Messages</p>
-                <h3 id="totalCount" class="text-3xl font-black text-indigo-900">0</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 text-center">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-indigo-500">
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Total Messages</p>
+                <h3 id="totalCount" class="text-4xl font-black text-gray-800">0</h3>
             </div>
-            <div class="p-4 bg-orange-50 rounded-2xl">
-                <p class="text-sm text-orange-600 font-bold uppercase">Most Active</p>
-                <h3 id="topCollege" class="text-xl font-black text-orange-900">---</h3>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-orange-500">
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Most Active</p>
+                <h3 id="topCollege" class="text-2xl font-black text-gray-800">---</h3>
             </div>
-            <div class="p-4 bg-green-50 rounded-2xl">
-                <p class="text-sm text-green-600 font-bold uppercase">Anonymity Rate</p>
-                <h3 id="anonRate" class="text-3xl font-black text-green-900">0%</h3>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-green-500">
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Anonymity Rate</p>
+                <h3 id="anonRate" class="text-4xl font-black text-gray-800">0%</h3>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl shadow-xl">
-            <canvas id="collegeChart" width="400" height="200"></canvas>
+        <div class="bg-white p-8 rounded-3xl shadow-xl">
+            <canvas id="collegeChart" style="max-height: 400px;"></canvas>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        // CONFIGURATION
         const firebaseConfig = {
-  apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
-  authDomain: "web-app-7f330.firebaseapp.com",
-  projectId: "web-app-7f330",
-  storageBucket: "web-app-7f330.firebasestorage.app",
-  messagingSenderId: "991761230541",
-  appId: "1:991761230541:web:4063b0ab78e03a72075784"
-
+            apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
+            authDomain: "web-app-7f330.firebaseapp.com",
+            projectId: "web-app-7f330",
+            storageBucket: "web-app-7f330.firebasestorage.app",
+            messagingSenderId: "991761230541",
+            appId: "1:991761230541:web:4063b0ab78e03a72075784"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         let myChart;
 
-        // Login Function
-        window.adminLogin = () => {
+        // ATTACH TO WINDOW
+        window.adminLogin = async () => {
             const email = document.getElementById('adminEmail').value;
             const pass = document.getElementById('adminPass').value;
-            signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (error) {
+                alert("Login Error: " + error.message);
+            }
         };
 
-        // Logout Function
         window.logout = () => signOut(auth);
 
-        // UI Toggle based on Auth
+        // AUTH LISTENER
         onAuthStateChanged(auth, (user) => {
+            const loginSec = document.getElementById('loginSection');
+            const dashSec = document.getElementById('adminDashboard');
             if (user) {
-                document.getElementById('loginSection').classList.add('hidden');
-                document.getElementById('adminDashboard').classList.remove('hidden');
-                startAnalytics();
+                loginSec.classList.add('hidden');
+                dashSec.classList.remove('hidden');
+                runAnalytics();
             } else {
-                document.getElementById('loginSection').classList.remove('hidden');
-                document.getElementById('adminDashboard').classList.add('hidden');
+                loginSec.classList.remove('hidden');
+                dashSec.classList.add('hidden');
             }
         });
 
-        function startAnalytics() {
+        // ANALYTICS ENGINE
+        function runAnalytics() {
             const ctx = document.getElementById('collegeChart').getContext('2d');
             onSnapshot(collection(db, "messages"), (snapshot) => {
                 const stats = { "COT": 0, "COED": 0, "CHM": 0, "Unknown": 0 };
@@ -102,22 +114,19 @@
                 document.getElementById('totalCount').innerText = total;
                 document.getElementById('anonRate').innerText = total > 0 ? Math.round((stats["Unknown"] / total) * 100) + "%" : "0%";
                 
-                // Determine Most Active
-                const top = Object.keys(stats).reduce((a, b) => stats[a] > stats[b] ? a : b);
-                document.getElementById('topCollege').innerText = top === "Unknown" ? "Anonymous" : top;
-
                 if (myChart) myChart.destroy();
                 myChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: ['Technology', 'Education', 'Hospitality', 'Unknown'],
                         datasets: [{
-                            label: 'Messages per College',
+                            label: 'Messages',
                             data: [stats["COT"], stats["COED"], stats["CHM"], stats["Unknown"]],
                             backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#94a3b8'],
-                            borderRadius: 8
+                            borderRadius: 12
                         }]
-                    }
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
                 });
             });
         }
