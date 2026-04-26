@@ -3,104 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus Pulse | Interactive Wall</title>
+    <title>Campus Pulse | Live Wall & Games</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        .note-card { transition: all 0.3s ease; }
-        .note-card:hover { transform: scale(1.03) rotate(-1deg); z-index: 10; }
-        .bg-pattern { background-color: #f3f4f6; background-image: radial-gradient(#d1d5db 1px, transparent 1px); background-size: 20px 20px; }
+        .note { transition: all 0.3s ease; cursor: default; }
+        .note:hover { transform: translateY(-5px) rotate(1deg); }
+        .bg-dots { background-color: #f8fafc; background-image: radial-gradient(#e2e8f0 1px, transparent 1px); background-size: 24px 24px; }
+        #gameArea { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 50; align-items: center; justify-content: center; }
     </style>
 </head>
-<body class="bg-pattern min-h-screen">
+<body class="bg-dots min-h-screen pb-20">
 
-    <header class="py-10 text-center">
-        <h1 class="text-6xl font-black text-indigo-600 drop-shadow-md animate__animated animate__pulse animate__infinite">CAMPUS PULSE</h1>
-        <p class="text-gray-500 font-medium mt-2">No login. No drama. Just messages.</p>
+    <div id="gameArea">
+        <div class="bg-white p-10 rounded-3xl text-center max-w-sm mx-auto shadow-2xl relative">
+            <button onclick="toggleGame()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl">✕</button>
+            <h2 class="text-2xl font-black text-indigo-600 mb-2">Campus Clicker</h2>
+            <p class="text-gray-500 mb-6 text-sm">Tap the logo to "study" for exams!</p>
+            <div id="clickerLogo" onclick="earnPoint()" class="text-8xl cursor-pointer select-none transform active:scale-90 transition mb-6">🎓</div>
+            <p class="text-3xl font-black text-slate-800" id="scoreDisplay">Points: 0</p>
+        </div>
+    </div>
+
+    <header class="py-12 text-center">
+        <h1 class="text-6xl font-black text-indigo-600 mb-2 animate__animated animate__fadeInDown italic">CAMPUS PULSE</h1>
+        <div class="flex justify-center gap-4">
+            <span class="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold">LIVE WALL</span>
+            <button onclick="toggleGame()" class="bg-orange-400 text-white px-3 py-1 rounded-full text-xs font-bold animate-bounce">PLAY GAME 🎮</button>
+        </div>
     </header>
 
     <section class="max-w-2xl mx-auto px-4 mb-16">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl border-t-8 border-indigo-500">
-            <div class="grid grid-cols-1 gap-4">
-                <textarea id="message" placeholder="Type your concern or secret message here..." class="w-full p-4 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 focus:bg-white outline-none h-32 transition"></textarea>
-                <div class="flex flex-col md:flex-row gap-4">
-                    <input type="text" id="fromCollege" placeholder="From (Optional College)" class="flex-1 p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
-                    <input type="text" id="toWhom" placeholder="To (Addressed to...)" class="flex-1 p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
-                </div>
-                <button onclick="postMessage()" id="sendBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-indigo-200 transform active:scale-95 transition-all text-xl">
-                    Post to Wall 🚀
-                </button>
+        <div class="bg-white p-8 rounded-3xl shadow-2xl border-b-8 border-indigo-500">
+            <textarea id="message" placeholder="What's your campus secret?" class="w-full p-4 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 focus:bg-white outline-none h-24 mb-4 transition"></textarea>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input type="text" id="fromCollege" placeholder="Your College (e.g. COT)" class="p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
+                <input type="text" id="toWhom" placeholder="To: (e.g. Future Self)" class="p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-indigo-400 outline-none">
             </div>
+            <button onclick="postMessage()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all text-xl">
+                POST TO WALL 🚀
+            </button>
         </div>
     </section>
 
-    <main id="wall" class="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pb-20">
+    <main id="wall" class="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // REPLACE WITH YOUR FIREBASE CONFIG
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyAXlmF92ViWxn0lrQ1o8p3s4UlDHBh7CCg",
+            authDomain: "web-app-7f330.firebaseapp.com",
+            projectId: "web-app-7f330",
+            storageBucket: "web-app-7f330.firebasestorage.app",
+            messagingSenderId: "991761230541",
+            appId: "1:991761230541:web:4063b0ab78e03a72075784"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const wall = document.getElementById('wall');
 
-        // Function to Post
-        window.postMessage = async () => {
-            const msg = document.getElementById('message').value;
-            const from = document.getElementById('fromCollege').value || "Anonymous";
-            const to = document.getElementById('toWhom').value || "Anyone";
-
-            if (!msg) return alert("You can't post an empty bubble!");
-
-            try {
-                await addDoc(collection(db, "messages"), {
-                    text: msg,
-                    from: from,
-                    to: to,
-                    createdAt: serverTimestamp()
-                });
-                document.getElementById('message').value = "";
-                document.getElementById('fromCollege').value = "";
-                document.getElementById('toWhom').value = "";
-            } catch (e) { console.error("Error adding document: ", e); }
+        // GAME LOGIC
+        let score = 0;
+        window.toggleGame = () => {
+            const area = document.getElementById('gameArea');
+            area.style.display = area.style.display === 'flex' ? 'none' : 'flex';
+        };
+        window.earnPoint = () => {
+            score++;
+            document.getElementById('scoreDisplay').innerText = `Points: ${score}`;
+            if(score % 10 === 0) confetti({ particleCount: 50, spread: 30, origin: { y: 0.8 } });
         };
 
-        // Real-time listener
-        const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
+        // MESSAGE LOGIC
+        window.postMessage = async () => {
+            const msg = document.getElementById('message').value;
+            if (!msg) return;
+            await addDoc(collection(db, "messages"), {
+                text: msg,
+                from: document.getElementById('fromCollege').value || "Anonymous",
+                to: document.getElementById('toWhom').value || "Everyone",
+                status: "pending",
+                createdAt: serverTimestamp()
+            });
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            document.getElementById('message').value = "";
+        };
+
+        const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(10));
         onSnapshot(q, (snapshot) => {
+            const wall = document.getElementById('wall');
             wall.innerHTML = "";
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                const colors = ['bg-yellow-200', 'bg-blue-200', 'bg-pink-200', 'bg-green-200', 'bg-purple-200', 'bg-orange-200'];
-                const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                
-                const card = `
-                    <div class="${randomColor} p-6 rounded-sm shadow-lg note-card animate__animated animate__fadeIn rotate-1">
-                        <div class="flex justify-between items-start mb-4">
-                             <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600">To: ${data.to}</span>
-                             <div class="h-4 w-4 bg-gray-400 rounded-full opacity-20"></div>
-                        </div>
-                        <p class="text-gray-800 font-medium leading-relaxed mb-6">"${data.text}"</p>
-                        <div class="text-right">
-                             <span class="text-xs font-bold italic text-gray-700">— ${data.from}</span>
-                        </div>
-                    </div>
-                `;
-                wall.insertAdjacentHTML('beforeend', card);
+                const colors = ['bg-amber-100', 'bg-sky-100', 'bg-rose-100', 'bg-emerald-100', 'bg-violet-100'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                wall.innerHTML += `
+                    <div class="${color} p-5 rounded-xl shadow-lg note animate__animated animate__fadeInUp border-b-4 border-black/5">
+                        <p class="text-[9px] font-black text-black/30 uppercase mb-2">TO: ${data.to}</p>
+                        <p class="text-gray-800 font-medium mb-4 italic text-sm">"${data.text}"</p>
+                        <p class="text-[10px] text-right font-bold text-gray-500">— ${data.from}</p>
+                    </div>`;
             });
         });
     </script>
 </body>
 </html>
-
