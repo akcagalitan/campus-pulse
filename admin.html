@@ -2,38 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>USC Admin | Private Inbox</title>
+    <title>USC Admin | Vault</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        body { font-family: 'JetBrains Mono', monospace; background-color: #020617; }
+        .stat-card { background: linear-gradient(145deg, #0f172a, #1e293b); border: 1px solid #334155; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
+<body class="text-slate-300 p-8">
 
-    <div id="loginSection" class="max-w-md mx-auto bg-slate-800 p-10 rounded-[2rem] mt-20 shadow-2xl">
-        <h2 class="text-2xl font-black mb-6 text-center text-indigo-400">ADMIN LOGIN</h2>
-        <input type="email" id="adminEmail" placeholder="Email" class="w-full p-4 bg-slate-700 border-none rounded-2xl mb-4 text-white">
-        <input type="password" id="adminPass" placeholder="Password" class="w-full p-4 bg-slate-700 border-none rounded-2xl mb-6 text-white">
-        <button onclick="adminLogin()" class="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black hover:bg-indigo-600 transition">ENTER VAULT</button>
+    <div id="loginSection" class="max-w-md mx-auto mt-32 stat-card p-10 rounded-3xl shadow-2xl">
+        <h2 class="text-xl font-bold text-indigo-400 mb-6 text-center">ACCESS RESTRICTED</h2>
+        <input type="email" id="adminEmail" placeholder="Admin Email" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl mb-4 text-white outline-none">
+        <input type="password" id="adminPass" placeholder="Password" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl mb-6 text-white outline-none">
+        <button onclick="adminLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold transition">INITIALIZE LOGIN</button>
     </div>
 
-    <div id="adminDashboard" class="hidden max-w-6xl mx-auto">
-        <div class="flex justify-between items-center mb-12">
-            <h1 class="text-4xl font-black italic text-indigo-400">SERIOUS INBOX</h1>
-            <button onclick="logout()" class="text-xs font-bold opacity-50 hover:opacity-100">LOGOUT</button>
-        </div>
+    <div id="adminDashboard" class="hidden">
+        <header class="flex justify-between items-center mb-12 border-b border-slate-800 pb-6">
+            <h1 class="text-2xl font-bold tracking-tighter">USC_CORE_V1.0</h1>
+            <button onclick="logout()" class="text-red-400 text-xs hover:underline">TERMINATE_SESSION</button>
+        </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 space-y-6">
-                <div class="bg-slate-800 p-8 rounded-[2rem]">
-                    <h3 class="text-xs font-bold text-slate-500 mb-4 uppercase">Resolution Progress</h3>
-                    <canvas id="resChart"></canvas>
+                <div class="stat-card p-6 rounded-2xl text-center">
+                    <p class="text-[10px] text-slate-500 mb-2">TOTAL_INBOX</p>
+                    <h2 id="totalCount" class="text-5xl font-bold text-white">0</h2>
                 </div>
-                <div class="bg-indigo-600 p-8 rounded-[2rem]">
-                    <p class="text-xs font-bold opacity-60 uppercase mb-2">Active Concerns</p>
-                    <h2 id="totalCount" class="text-6xl font-black">0</h2>
+                <div class="stat-card p-6 rounded-2xl">
+                    <canvas id="resChart"></canvas>
                 </div>
             </div>
 
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-3">
                 <div id="seriousWall" class="space-y-4">
                     </div>
             </div>
@@ -62,7 +66,7 @@
         window.adminLogin = () => {
             const email = document.getElementById('adminEmail').value;
             const pass = document.getElementById('adminPass').value;
-            signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+            signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Access Denied: " + err.message));
         };
 
         window.logout = () => signOut(auth);
@@ -71,50 +75,43 @@
             await updateDoc(doc(db, "serious_concerns", id), { status: status === 'pending' ? 'done' : 'pending' });
         };
 
-        window.deleteMsg = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "serious_concerns", id)); };
+        window.deleteMsg = async (id) => { if(confirm("Permanently wipe this data?")) await deleteDoc(doc(db, "serious_concerns", id)); };
 
         onAuthStateChanged(auth, (user) => {
             document.getElementById('loginSection').classList.toggle('hidden', !!user);
             document.getElementById('adminDashboard').classList.toggle('hidden', !user);
-            if(user) loadSeriousData();
-        });
-
-        function loadSeriousData() {
-            const q = query(collection(db, "serious_concerns"), orderBy("createdAt", "desc"));
-            onSnapshot(q, (snaps) => {
-                const wall = document.getElementById('seriousWall');
-                let done = 0; let pending = 0;
-                wall.innerHTML = "";
-                
-                snaps.forEach(d => {
-                    const data = d.data();
-                    const isDone = data.status === 'done';
-                    isDone ? done++ : pending++;
-
-                    wall.innerHTML += `
-                        <div class="p-6 rounded-3xl ${isDone ? 'bg-slate-800/50 opacity-50' : 'bg-slate-800'} border border-slate-700 flex justify-between items-center">
-                            <div>
-                                <p class="text-[10px] font-bold text-indigo-400 mb-1 uppercase">${data.from} → ${data.to}</p>
-                                <p class="font-bold text-lg">${data.text}</p>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="toggleResolve('${d.id}', '${data.status}')" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-green-500 text-white' : 'bg-indigo-500 text-white'}">
-                                    ${isDone ? 'RESOLVED' : 'PENDING'}
-                                </button>
-                                <button onclick="deleteMsg('${d.id}')" class="text-slate-500">✕</button>
-                            </div>
-                        </div>`;
+            if(user) {
+                const q = query(collection(db, "serious_concerns"), orderBy("createdAt", "desc"));
+                onSnapshot(q, (snaps) => {
+                    const wall = document.getElementById('seriousWall');
+                    let done = 0; let pending = 0;
+                    wall.innerHTML = "";
+                    snaps.forEach(d => {
+                        const data = d.data();
+                        data.status === 'done' ? done++ : pending++;
+                        wall.innerHTML += `
+                            <div class="stat-card p-6 rounded-2xl flex justify-between items-center ${data.status === 'done' ? 'opacity-30' : ''}">
+                                <div>
+                                    <p class="text-indigo-500 text-[10px] mb-1 font-bold">SOURCE: ${data.from}</p>
+                                    <p class="text-white text-lg">${data.text}</p>
+                                </div>
+                                <div class="flex gap-4">
+                                    <button onclick="toggleResolve('${d.id}', '${data.status}')" class="text-[10px] font-bold border border-indigo-500 px-4 py-2 rounded uppercase">${data.status === 'pending' ? 'Mark Resolved' : 'Reopen'}</button>
+                                    <button onclick="deleteMsg('${d.id}')" class="text-red-500 hover:text-white transition">✕</button>
+                                </div>
+                            </div>`;
+                    });
+                    document.getElementById('totalCount').innerText = pending;
+                    updateChart(done, pending);
                 });
-                document.getElementById('totalCount').innerText = pending;
-                updateChart(done, pending);
-            });
-        }
+            }
+        });
 
         function updateChart(done, pending) {
             const ctx = document.getElementById('resChart').getContext('2d');
             if(myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'pie',
+                type: 'doughnut',
                 data: {
                     labels: ['Resolved', 'Pending'],
                     datasets: [{ data: [done, pending], backgroundColor: ['#10b981', '#6366f1'], borderWidth: 0 }]
